@@ -59,7 +59,12 @@ def agregar_usuario():
         edad = request.json['edad']
         password = request.json['password']
 
-        # Asegúrate que los nombres de columnas coincidan con tu base de datos
+        if tipo not in ['estudiante', 'tutor', 'administrador']:
+            return jsonify({
+                "mensaje": "Tipo de usuario no válido",
+                "exito": False
+            })
+
         sql = """INSERT INTO usuarios (nombre, correo, tipo, edad, password) 
                  VALUES (%s, %s, %s, %s, %s)"""
         datos = (nombre, correo, tipo, edad, password)
@@ -77,6 +82,7 @@ def agregar_usuario():
             "exito": False
         })
 
+
 @app.route("/usuario/<int:idUsuario>", methods=['DELETE'])
 def borrar_usuario(idUsuario):
     """
@@ -91,6 +97,43 @@ def borrar_usuario(idUsuario):
         return jsonify({"mensaje": "Usuario eliminado correctamente", "exito": True})
     except Exception as ex:
         return jsonify({"mensaje": f"Error al eliminar el usuario: {ex}", "exito": False})
+
+#Login
+@app.route("/usuarios/login", methods=['POST'])
+def login_usuario():
+    try:
+        correo = request.json['correo']
+        password = request.json['password']
+        
+        # Comprobar si el correo y la contraseña coinciden con algún usuario en la base de datos
+        cursor = con.connection.cursor()
+        sql = "SELECT * FROM usuarios WHERE correo = %s AND password = %s"
+        cursor.execute(sql, (correo, password))
+        usuario = cursor.fetchone()
+
+        if usuario:
+            # Si existe el usuario, retornamos la información
+            return jsonify({
+                "mensaje": "Login exitoso",
+                "exito": True,
+                "usuario": {
+                    "idUsuario": usuario[0],
+                    "nombre": usuario[1],
+                    "correo": usuario[2],
+                    "tipo": usuario[3],
+                    "edad": usuario[4]
+                }
+            })
+        else:
+            return jsonify({
+                "mensaje": "Credenciales incorrectas",
+                "exito": False
+            })
+    except Exception as ex:
+        return jsonify({
+            "mensaje": f"Error al autenticar usuario: {ex}",
+            "exito": False
+        })
 
 
 # Manejo de errores
