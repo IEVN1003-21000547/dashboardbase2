@@ -9,119 +9,80 @@ CORS(app)
 # Conexión a la base de datos
 con = MySQL(app)
 
-# Rutas
-@app.route("/usuarios", methods=['GET'])
-def lista_usuarios():
-    """
-    Lista todos los usuarios de la base de datos.
-    """
-    try:
-        cursor = con.connection.cursor()
-        sql = "SELECT * FROM usuarios"
-        cursor.execute(sql)
-        datos = cursor.fetchall()
+# Tabla Administradores
+@app.route("/administradores", methods=['GET', 'POST'])
+def administradores():
+    if request.method == 'GET':
+        try:
+            cursor = con.connection.cursor()
+            cursor.execute("SELECT * FROM administradores")
+            datos = cursor.fetchall()
+
+            administradores = [
+                {"IdAdministrador": fila[0], "Nombre": fila[1], "Correo": fila[2], "Contrasena": fila[3]}
+                for fila in datos
+            ]
+            return jsonify({"administradores": administradores, "mensaje": "Lista de administradores", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'POST':
+        try:
+            cursor = con.connection.cursor()
+            nombre = request.json['Nombre']
+            correo = request.json['Correo']
+            contrasena = request.json['Contrasena']
+            sql = "INSERT INTO administradores (Nombre, Correo, Contrasena) VALUES (%s, %s, %s)"
+            cursor.execute(sql, (nombre, correo, contrasena))
+            con.connection.commit()
+            return jsonify({"mensaje": "Administrador agregado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+@app.route("/administradores/<int:id>", methods=['PUT', 'DELETE'])
+def editar_eliminar_administrador(id):
+    if request.method == 'PUT':
+        try:
+            cursor = con.connection.cursor()
+            nombre = request.json['Nombre']
+            correo = request.json['Correo']
+            contrasena = request.json['Contrasena']
+            sql = "UPDATE administradores SET Nombre = %s, Correo = %s, Contrasena = %s WHERE IdAdministrador = %s"
+            cursor.execute(sql, (nombre, correo, contrasena, id))
+            con.connection.commit()
+            return jsonify({"mensaje": "Administrador actualizado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'DELETE':
+        try:
+            cursor = con.connection.cursor()
+            sql = "DELETE FROM administradores WHERE IdAdministrador = %s"
+            cursor.execute(sql, (id,))
+            con.connection.commit()
+            return jsonify({"mensaje": "Administrador eliminado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
         
-        usuarios = []
-        for fila in datos:
-            usuario = {
-                "idUsuario": fila[0],
-                "nombre": fila[1],
-                "correo": fila[2],
-                "tipo": fila[3],
-                "edad": fila[4]
-            }
-            usuarios.append(usuario)
-        return jsonify({"usuarios": usuarios, "mensaje": "Lista de usuarios", "exito": True})
-    except Exception as ex:
-        return jsonify({"mensaje": f"Error al conectar a la base de datos: {ex}", "exito": False})
-    
-# Eliminar usuario
-@app.route("/usuarios/<int:id>", methods=['DELETE'])
-def eliminar_usuario(id):
+@app.route("/administradores/login", methods=['POST'])
+def login_administrador():
     try:
-        cursor = con.connection.cursor()
-        sql = "DELETE FROM usuarios WHERE idUsuario = %s"  # Cambiado id a idUsuario para coincidir con tu esquema
-        cursor.execute(sql, (id,))
-        con.connection.commit()
-        cursor.close()
-        return jsonify({"message": "Usuario eliminado", 'exito': True})
-    except Exception as ex:
-        return jsonify({"message": f"Error al eliminar usuario: {ex}", 'exito': False})
-
-
-@app.route("/usuarios", methods=['POST'])
-def agregar_usuario():
-    try:
-        cursor = con.connection.cursor()
-        nombre = request.json['nombre']
-        correo = request.json['correo']
-        tipo = request.json['tipo']
-        edad = request.json['edad']
-        password = request.json['password']
-
-        if tipo not in ['estudiante', 'tutor', 'administrador']:
-            return jsonify({
-                "mensaje": "Tipo de usuario no válido",
-                "exito": False
-            })
-
-        sql = """INSERT INTO usuarios (nombre, correo, tipo, edad, password) 
-                 VALUES (%s, %s, %s, %s, %s)"""
-        datos = (nombre, correo, tipo, edad, password)
-        cursor.execute(sql, datos)
-        con.connection.commit()
-        cursor.close()
-
-        return jsonify({
-            "mensaje": "Usuario agregado correctamente", 
-            "exito": True
-        })
-    except Exception as ex:
-        return jsonify({
-            "mensaje": f"Error al agregar el usuario: {str(ex)}", 
-            "exito": False
-        })
-
-
-@app.route("/usuario/<int:idUsuario>", methods=['DELETE'])
-def borrar_usuario(idUsuario):
-    """
-    Borra un usuario de la base de datos por su ID.
-    """
-    try:
-        cursor = con.connection.cursor()
-        sql = "DELETE FROM usuarios WHERE idUsuario = %s"
-        cursor.execute(sql, (idUsuario,))
-        con.connection.commit()
+        correo = request.json['Correo']
+        contrasena = request.json['Contrasena']
         
-        return jsonify({"mensaje": "Usuario eliminado correctamente", "exito": True})
-    except Exception as ex:
-        return jsonify({"mensaje": f"Error al eliminar el usuario: {ex}", "exito": False})
-
-#Login
-@app.route("/usuarios/login", methods=['POST'])
-def login_usuario():
-    try:
-        correo = request.json['correo']
-        password = request.json['password']
-        
-        # Comprobar si el correo y la contraseña coinciden con algún usuario en la base de datos
         cursor = con.connection.cursor()
-        sql = "SELECT * FROM usuarios WHERE correo = %s AND password = %s"
-        cursor.execute(sql, (correo, password))
-        usuario = cursor.fetchone()
+        sql = "SELECT * FROM administradores WHERE Correo = %s AND Contrasena = %s"
+        cursor.execute(sql, (correo, contrasena))
+        admin = cursor.fetchone()
 
-        if usuario:
-            # Si existe el usuario, retornamos la información
+        if admin:
             return jsonify({
                 "mensaje": "Login exitoso",
                 "exito": True,
-                "usuario": {
-                    "idUsuario": usuario[0],
-                    "nombre": usuario[1],
-                    "correo": usuario[2],
-                    "tipo": usuario[3],
-                    "edad": usuario[4]
+                "administrador": {
+                    "IdAdministrador": admin[0],
+                    "Nombre": admin[1],
+                    "Correo": admin[2]
                 }
             })
         else:
@@ -131,7 +92,250 @@ def login_usuario():
             })
     except Exception as ex:
         return jsonify({
-            "mensaje": f"Error al autenticar usuario: {ex}",
+            "mensaje": f"Error al autenticar administrador: {ex}",
+            "exito": False
+        })
+
+
+# Tabla Escuela
+@app.route("/escuelas", methods=['GET', 'POST'])
+def escuelas():
+    if request.method == 'GET':
+        try:
+            cursor = con.connection.cursor()
+            cursor.execute("SELECT * FROM escuela")
+            datos = cursor.fetchall()
+
+            escuelas = [
+                {
+                    "IdEscuela": fila[0],
+                    "Nombre": fila[1],
+                    "Direccion": fila[2],
+                    "Correo": fila[3],
+                    "Telefono": fila[4],
+                    "NumeroEscuela": fila[5],
+                    "MetodoPago": fila[6],
+                    "CantidadLicencias": fila[7],
+                    "FechaExpiracion": fila[8]
+                }
+                for fila in datos
+            ]
+            return jsonify({"escuelas": escuelas, "mensaje": "Lista de escuelas", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'POST':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Nombre'],
+                request.json['Direccion'],
+                request.json['Correo'],
+                request.json['Telefono'],
+                request.json['NumeroEscuela'],
+                request.json['MetodoPago'],
+                request.json['CantidadLicencias'],
+                request.json['FechaExpiracion']
+            )
+            sql = """INSERT INTO escuela (Nombre, Direccion, Correo, Telefono, NumeroEscuela, MetodoPago, CantidadLicencias, FechaExpiracion)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Escuela agregada", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+@app.route("/escuelas/<int:id>", methods=['PUT', 'DELETE'])
+def editar_eliminar_escuela(id):
+    if request.method == 'PUT':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Nombre'],
+                request.json['Direccion'],
+                request.json['Correo'],
+                request.json['Telefono'],
+                request.json['NumeroEscuela'],
+                request.json['MetodoPago'],
+                request.json['CantidadLicencias'],
+                request.json['FechaExpiracion'],
+                id
+            )
+            sql = """UPDATE escuela SET Nombre = %s, Direccion = %s, Correo = %s, Telefono = %s, 
+                     NumeroEscuela = %s, MetodoPago = %s, CantidadLicencias = %s, FechaExpiracion = %s WHERE IdEscuela = %s"""
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Escuela actualizada", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'DELETE':
+        try:
+            cursor = con.connection.cursor()
+            sql = "DELETE FROM escuela WHERE IdEscuela = %s"
+            cursor.execute(sql, (id,))
+            con.connection.commit()
+            return jsonify({"mensaje": "Escuela eliminada", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+# Tabla Alumno
+@app.route("/alumnos", methods=['GET', 'POST'])
+def alumnos():
+    if request.method == 'GET':
+        try:
+            cursor = con.connection.cursor()
+            cursor.execute("SELECT * FROM alumno")
+            datos = cursor.fetchall()
+
+            alumnos = [
+                {"Matricula": fila[0], "Nombre": fila[1], "Escuela": fila[2], "Contacto": fila[3]}
+                for fila in datos
+            ]
+            return jsonify({"alumnos": alumnos, "mensaje": "Lista de alumnos", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'POST':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Matricula'],
+                request.json['Nombre'],
+                request.json['Escuela'],
+                request.json['Contacto']
+            )
+            sql = "INSERT INTO alumno (Matricula, Nombre, Escuela, Contacto) VALUES (%s, %s, %s, %s)"
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Alumno agregado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+@app.route("/alumnos/<string:matricula>", methods=['PUT', 'DELETE'])
+def editar_eliminar_alumno(matricula):
+    if request.method == 'PUT':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Nombre'],
+                request.json['Escuela'],
+                request.json['Contacto'],
+                matricula
+            )
+            sql = "UPDATE alumno SET Nombre = %s, Escuela = %s, Contacto = %s WHERE Matricula = %s"
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Alumno actualizado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'DELETE':
+        try:
+            cursor = con.connection.cursor()
+            sql = "DELETE FROM alumno WHERE Matricula = %s"
+            cursor.execute(sql, (matricula,))
+            con.connection.commit()
+            return jsonify({"mensaje": "Alumno eliminado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+        
+# Tabla Padres
+@app.route("/padres", methods=['GET', 'POST'])
+def padres():
+    if request.method == 'GET':
+        try:
+            cursor = con.connection.cursor()
+            cursor.execute("SELECT * FROM padres")
+            datos = cursor.fetchall()
+
+            padres = [
+                {"IdPadre": fila[0], "Nombre": fila[1], "Correo": fila[2], "Contrasena": fila[3], "MetodoPago": fila[4], "FechaExpiracion": fila[5]}
+                for fila in datos
+            ]
+            return jsonify({"padres": padres, "mensaje": "Lista de padres", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'POST':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Nombre'],
+                request.json['Correo'],
+                request.json['Contrasena'],
+                request.json['MetodoPago'],
+                request.json['FechaExpiracion']
+            )
+            sql = """INSERT INTO padres (Nombre, Correo, Contrasena, MetodoPago, FechaExpiracion)
+                     VALUES (%s, %s, %s, %s, %s)"""
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Padre agregado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+@app.route("/padres/<int:id>", methods=['PUT', 'DELETE'])
+def editar_eliminar_padre(id):
+    if request.method == 'PUT':
+        try:
+            cursor = con.connection.cursor()
+            datos = (
+                request.json['Nombre'],
+                request.json['Correo'],
+                request.json['Contrasena'],
+                request.json['MetodoPago'],
+                request.json['FechaExpiracion'],
+                id
+            )
+            sql = """UPDATE padres SET Nombre = %s, Correo = %s, Contrasena = %s, MetodoPago = %s, 
+                     FechaExpiracion = %s WHERE IdPadre = %s"""
+            cursor.execute(sql, datos)
+            con.connection.commit()
+            return jsonify({"mensaje": "Padre actualizado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+    elif request.method == 'DELETE':
+        try:
+            cursor = con.connection.cursor()
+            sql = "DELETE FROM padres WHERE IdPadre = %s"
+            cursor.execute(sql, (id,))
+            con.connection.commit()
+            return jsonify({"mensaje": "Padre eliminado", "exito": True})
+        except Exception as ex:
+            return jsonify({"mensaje": f"Error: {ex}", "exito": False})
+
+@app.route("/padres/login", methods=['POST'])
+def login_padre():
+    try:
+        correo = request.json['Correo']
+        contrasena = request.json['Contrasena']
+        
+        cursor = con.connection.cursor()
+        sql = "SELECT * FROM padres WHERE Correo = %s AND Contrasena = %s"
+        cursor.execute(sql, (correo, contrasena))
+        padre = cursor.fetchone()
+
+        if padre:
+            return jsonify({
+                "mensaje": "Login exitoso",
+                "exito": True,
+                "padre": {
+                    "IdPadre": padre[0],
+                    "Nombre": padre[1],
+                    "Correo": padre[2]
+                }
+            })
+        else:
+            return jsonify({
+                "mensaje": "Credenciales incorrectas",
+                "exito": False
+            })
+    except Exception as ex:
+        return jsonify({
+            "mensaje": f"Error al autenticar padre: {ex}",
             "exito": False
         })
 
