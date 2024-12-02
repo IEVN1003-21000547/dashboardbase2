@@ -179,6 +179,42 @@ def editar_eliminar_escuela(id):
         except Exception as ex:
             return jsonify({"mensaje": f"Error: {ex}", "exito": False})
 
+#agregado el 02/12/2024
+@app.route("/escuelas/verificar", methods=['POST'])
+def verificar_escuela():
+    try:
+        nombre = request.json['Nombre']
+        correo = request.json['Correo']
+        numero_escuela = request.json['NumeroEscuela']
+        
+        cursor = con.connection.cursor()
+        sql = "SELECT * FROM escuela WHERE Nombre = %s AND Correo = %s AND NumeroEscuela = %s"
+        cursor.execute(sql, (nombre, correo, numero_escuela))
+        escuela = cursor.fetchone()
+
+        if escuela:
+            return jsonify({
+                "mensaje": "Escuela encontrada",
+                "exito": True,
+                "escuela": {
+                    "IdEscuela": escuela[0],
+                    "Nombre": escuela[1],
+                    "Correo": escuela[3],
+                    "NumeroEscuela": escuela[5]
+                }
+            })
+        else:
+            return jsonify({
+                "mensaje": "No se encontró la escuela",
+                "exito": False
+            })
+    except Exception as ex:
+        return jsonify({
+            "mensaje": f"Error al verificar escuela: {ex}",
+            "exito": False
+        })
+
+
 # Tabla Alumno
 @app.route("/alumnos", methods=['GET', 'POST'])
 def alumnos():
